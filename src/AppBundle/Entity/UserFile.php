@@ -7,8 +7,9 @@ use Doctrine\ORM\Mapping as ORM;
 
 /**
  * @ORM\Entity()
+ * @ORM\Table(name="user_files")
  */
-class Document
+class UserFile
 {
     /**
      * @ORM\Id()
@@ -41,6 +42,11 @@ class Document
      * @ORM\Column(type="string", length=255)
      */
     private $name;
+
+    /**
+     * @ORM\Column(type="text", nullable=true)
+     */
+    private $thumbnail;
 
     public function getId(): ?int
     {
@@ -103,6 +109,18 @@ class Document
     public function setName(string $name): self
     {
         $this->name = $name;
+
+        return $this;
+    }
+
+    public function getThumbnail(): ?string
+    {
+        return $this->thumbnail;
+    }
+
+    public function setThumbnail(?string $thumbnail): self
+    {
+        $this->thumbnail = $thumbnail;
 
         return $this;
     }

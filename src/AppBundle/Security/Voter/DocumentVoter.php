@@ -2,7 +2,7 @@
 
 namespace AppBundle\Security\Voter;
 
-use AppBundle\Entity\Document;
+use AppBundle\Entity\UserFile;
 use FOS\UserBundle\Model\User as BaseUser;
 use Symfony\Component\Security\Core\Authentication\Token\TokenInterface;
 use Symfony\Component\Security\Core\Authorization\Voter\Voter;
@@ -21,12 +21,12 @@ class DocumentVoter extends Voter
     {
         // replace with your own logic
         // https://symfony.com/doc/current/security/voters.html
-        return in_array($attribute, ['MANAGE']) && $subject instanceof Document;
+        return in_array($attribute, ['MANAGE']) && $subject instanceof UserFile;
     }
 
     protected function voteOnAttribute($attribute, $subject, TokenInterface $token)
     {
-        /** @var Document $subject */
+        /** @var UserFile $subject */
         $user = $token->getUser();
         // if the user is anonymous, do not grant access
         if (!$user instanceof BaseUser) {

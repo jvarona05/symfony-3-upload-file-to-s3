@@ -1,14 +1,14 @@
 {% extends 'base.html.twig' %}
 
 {% block body %}
-    <form method="POST" action="{{ path("upload_file") }}" enctype="multipart/form-data">
+    <form method="POST" action="{{ path("upload_document") }}" enctype="multipart/form-data">
         <label>
             <input type="radio" name="type" value="private">
         </label>Private<br>
         <label>
             <input type="radio" name="type" value="public">
         </label>Public<br>
-        <input type="file" name="image">
+        <input type="file" name="document">
         <button type="submit">Submit</button>
     </form>
 {% endblock %}

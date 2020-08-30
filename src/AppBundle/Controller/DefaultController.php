@@ -2,9 +2,11 @@
 
 namespace AppBundle\Controller;
 
-use AppBundle\Entity\Document;
+use AppBundle\Entity\UrlUtils;
+use AppBundle\Entity\UserFile;
 use AppBundle\Entity\User;
 use AppBundle\Service\UploaderHelper;
+use AppBundle\Utils\FileUtils;
 use Aws\S3\S3Client;
 use Doctrine\ORM\EntityManagerInterface;
 use Gedmo\Sluggable\Util\Urlizer;
@@ -20,7 +22,6 @@ use Symfony\Component\HttpFoundation\File\UploadedFile;
 use Symfony\Component\HttpFoundation\RedirectResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
-use Symfony\Component\HttpFoundation\ResponseHeaderBag;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 use Symfony\Component\Routing\Annotation\Route;
 use Symfony\Component\Security\Core\Authentication\Token\Storage\TokenStorageInterface;
@@ -28,97 +29,77 @@ use AppBundle\Utils\HeaderUtils;
 
 class DefaultController extends Controller
 {
-    private $tokenStorage;
-
-    public function __construct(TokenStorageInterface $tokenStorage)
-    {
-        $this->tokenStorage = $tokenStorage;
-    }
-
     /**
      * @Route("/", name="homepage")
      */
-    public function indexAction(Request $request)
+    public function indexAction()
     {
-        // replace this example code with whatever you need
-        return $this->render('default/index.html.twig', [
-            'base_dir' => realpath($this->getParameter('kernel.project_dir')).DIRECTORY_SEPARATOR,
-        ]);
+        return $this->render('default/index.html.twig');
     }
 
     /**
-     * @Route("/create_article", name="create_article")
-     */
-    public function createArticle(Request $request)
-    {
-        // replace this example code with whatever you need
-        return $this->render('default/index.html.twig', [
-            'base_dir' => realpath($this->getParameter('kernel.project_dir')).DIRECTORY_SEPARATOR,
-        ]);
-    }
-
-    /**
-     * @Route("/upload", name="upload_file")
+     * @Route("/document/upload", name="upload_document")
      * @param Request $request
      * @param UploaderHelper $uploaderHelper
-     * @param CacheManager $imagineCacheManager
+     * @param CacheManager $cacheManager
+     * @param TokenStorageInterface $tokenStorage
+     * @param FileUtils $fileUtils
      * @throws \Exception
      */
-    public function uploadAction(Request $request, UploaderHelper $uploaderHelper, CacheManager $cacheManager)
+    public function uploadAction(Request $request, UploaderHelper $uploaderHelper, CacheManager $cacheManager, TokenStorageInterface $tokenStorage, FileUtils $fileUtils)
     {
-        $uploadedFile = $request->files->get("image");
+        /** @var UploadedFile $uploadedFile */
+        $uploadedFile = $request->files->get("document");
         $imageType = $request->get("type");
 
         $fileName = $imageType == "private"
                         ? $uploaderHelper->uploadPrivateFile($uploadedFile)
                         : $uploaderHelper->uploadPublicFile($uploadedFile);
 
-        $resolvedPath = $cacheManager->getBrowserPath($fileName, 'my_thumb');
-
         /** @var User $user */
-        $user = $this->tokenStorage->getToken()->getUser();
+        $user = $tokenStorage->getToken()->getUser();
 
-        $document = new Document();
-        $document->setPath($fileName);
-        $document->setName($fileName);
-        $document->setIsPrivate($imageType == "private");
-        $document->setMimeType($uploadedFile->getMimeType() ?? 'application/octet-stream');
+        $file = new UserFile();
+        $file->setPath($fileName);
+        $file->setName($fileName);
+        $file->setIsPrivate($imageType === "private");
+        $file->setMimeType($uploadedFile->getMimeType() ?? 'application/octet-stream');
+        $file->setThumbnail(
+            $fileUtils->isImage($uploadedFile) ? UrlUtils::getPath($cacheManager->getBrowserPath($fileName, 'my_thumb')) : ""
+        );
 
-        $user->addDocument($document);
+        $user->addFile($file);
 
         $em = $this->getDoctrine()->getManager();
         $em->persist($user);
-        $em->persist($document);
+        $em->persist($file);
 
         $em->flush();
 
-        dump([
-            "original" => $fileName,
-            "thumbnail" => $resolvedPath
-        ]);
+        dump($file);
         die;
     }
 
     /**
-     * @Route("/upload/{id}", name="get_uploaded_file")
+     * @Route("/document/{id}", name="get_uploaded_file")
      * @IsGranted("MANAGE", subject="document")
-     * @param Document $document
+     * @param File $document
      * @param UploaderHelper $uploaderHelper
      * @return Response|StreamedResponse
      */
-    public function getFile(Document $document, UploaderHelper $uploaderHelper)
+    public function getFile(UserFile $file, UploaderHelper $uploaderHelper)
     {
-        $response = new StreamedResponse(function() use($document, $uploaderHelper){
+        $response = new StreamedResponse(function() use($file, $uploaderHelper){
             $outputStream = fopen('php://output', 'wp');
-            $fileStream = $uploaderHelper->readStream($document->getPath());
+            $fileStream = $uploaderHelper->readStream($file->getPath());
 
             stream_copy_to_stream($fileStream, $outputStream);
         });
 
-        $response->headers->set('Content-Type', $document->getMimeType());
+        $response->headers->set('Content-Type', $file->getMimeType());
         $disposition = HeaderUtils::makeDisposition(
             HeaderUtils::DISPOSITION_INLINE, //you can use DISPOSITION_INLINE to only show the file
-            $document->getName()
+            $file->getName()
         );
         $response->headers->set('Content-Disposition', $disposition);
 
@@ -128,19 +109,19 @@ class DefaultController extends Controller
     /**
      * @Route("/upload/{id}/download_from_s3", name="get_uploaded_file_directly_from_s3")
      * @IsGranted("MANAGE", subject="document")
-     * @param Document $document
+     * @param File $document
      * @param S3Client $s3Client
      * @param string $s3Bucket
      * @return Response|StreamedResponse
      */
-    public function getFileFromS3(Document $document, S3Client $s3Client)
+    public function getFileFromS3(UserFile $file, S3Client $s3Client)
     {
-        $disposition = HeaderUtils::makeDisposition(HeaderUtils::DISPOSITION_ATTACHMENT,$document->getName());
+        $disposition = HeaderUtils::makeDisposition(HeaderUtils::DISPOSITION_ATTACHMENT,$file->getName());
 
         $cmd = $s3Client->getCommand('GetObject', [
             'Bucket' => $this->getParameter("aws_bucket"),
-            'Key' => $document->getPath(),
-            'ResponseContentType' => $document->getMimeType(),
+            'Key' => $file->getPath(),
+            'ResponseContentType' => $file->getMimeType(),
             'ResponseContentDisposition' => $disposition
         ]);
 
@@ -152,11 +133,11 @@ class DefaultController extends Controller
     /**
      * @Route("/upload/{id}/delete", name="delete_uploaded_file")
      * @IsGranted("MANAGE", subject="document")
-     * @param Document $document
+     * @param File $document
      * @param UploaderHelper $uploaderHelper
      * @throws \Exception
      */
-    public function deleteFile(Document $document, UploaderHelper $uploaderHelper, EntityManagerInterface $em)
+    public function deleteFile(File $document, UploaderHelper $uploaderHelper, EntityManagerInterface $em)
     {
         $em->remove($document);
         $em->flush();

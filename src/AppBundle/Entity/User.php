@@ -23,16 +23,16 @@ class User extends BaseUser
     protected $id;
 
     /**
-     * @ORM\OneToMany(targetEntity=Document::class, mappedBy="user")
+     * @ORM\OneToMany(targetEntity=UserFile::class, mappedBy="user")
      */
-    private $documents;
+    private $files;
 
 
     public function __construct()
     {
         parent::__construct();
         // your own logic
-        $this->documents = new ArrayCollection();
+        $this->files = new ArrayCollection();
     }
 
     /**
@@ -44,27 +44,27 @@ class User extends BaseUser
     }
 
     /**
-     * @return Collection|Document[]
+     * @return Collection|UserFile[]
      */
     public function getDocuments(): Collection
     {
-        return $this->documents;
+        return $this->files;
     }
 
-    public function addDocument(Document $document): self
+    public function addFile(UserFile $document): self
     {
-        if (!$this->documents->contains($document)) {
-            $this->documents[] = $document;
+        if (!$this->files->contains($document)) {
+            $this->files[] = $document;
             $document->setUser($this);
         }
 
         return $this;
     }
 
-    public function removeDocument(Document $document): self
+    public function removeFile(UserFile $document): self
     {
-        if ($this->documents->contains($document)) {
-            $this->documents->removeElement($document);
+        if ($this->files->contains($document)) {
+            $this->files->removeElement($document);
             // set the owning side to null (unless already changed)
             if ($document->getUser() === $this) {
                 $document->setUser(null);
