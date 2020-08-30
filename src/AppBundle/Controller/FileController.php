@@ -74,26 +74,27 @@ class FileController extends Controller
     }
 
     /**
-     * @Route("/upload/{id}/from_s3/download", name="get_uploaded_file_directly_from_s3")
-     * @IsGranted("MANAGE", subject="document")
+     * @Route("/file/{id}/from_s3/download", name="uploaded_file_directly_from_s3")
+     * @IsGranted("MANAGE", subject="file")
      * @param UserFile $file
-     * @param S3Client $s3Client
+     * @param FileHelper $fileHelper
      * @return Response|StreamedResponse
      */
-    public function getFileFromS3(UserFile $file, S3Client $s3Client)
+    public function downloadFileFromS3(UserFile $file, FileHelper $fileHelper)
     {
-        $disposition = HeaderUtils::makeDisposition(HeaderUtils::DISPOSITION_ATTACHMENT,$file->getPath());
+        return $fileHelper->downloadFileFromS3($file);
+    }
 
-        $cmd = $s3Client->getCommand('GetObject', [
-            'Bucket' => $this->getParameter("aws_bucket"),
-            'Key' => $file->getPath(),
-            'ResponseContentType' => $file->getMimeType(),
-            'ResponseContentDisposition' => $disposition
-        ]);
-
-        $request = $s3Client->createPresignedRequest($cmd, '+20 minutes');
-
-        return new RedirectResponse((string)$request->getUri());
+    /**
+     * @Route("/file/{id}/from_s3/open", name="open_file_directly_from_s3")
+     * @IsGranted("MANAGE", subject="file")
+     * @param UserFile $file
+     * @param FileHelper $fileHelper
+     * @return Response|StreamedResponse
+     */
+    public function openFileFromS3(UserFile $file, FileHelper $fileHelper)
+    {
+        return $fileHelper->openFileFromS3($file);
     }
 
     /**

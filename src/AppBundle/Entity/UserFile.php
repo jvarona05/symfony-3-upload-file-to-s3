@@ -2,10 +2,8 @@
 
 namespace AppBundle\Entity;
 
-use AppBundle\Repository\DocumentRepository;
 use Doctrine\ORM\Mapping as ORM;
 use JsonSerializable;
-use AppBundle\Entity\FileInterface;
 
 /**
  * @ORM\Entity()
