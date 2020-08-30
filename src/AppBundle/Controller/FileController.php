@@ -3,10 +3,14 @@
 namespace AppBundle\Controller;
 
 use AppBundle\Factory\FileFactory;
+use AppBundle\Service\CssGeneratorService;
 use AppBundle\Service\FileHelper;
 use AppBundle\Entity\UserFile;
+use AppBundle\Service\PdfService;
 use AppBundle\Service\UploaderHelper;
 use Doctrine\ORM\EntityManagerInterface;
+use Dompdf\Dompdf;
+use Dompdf\Options;
 use Sensio\Bundle\FrameworkExtraBundle\Configuration\IsGranted;
 use Symfony\Bundle\FrameworkBundle\Controller\Controller;
 use Symfony\Component\HttpFoundation\File\File;
@@ -115,19 +119,32 @@ class FileController extends Controller
         return new Response("success", 204);
     }
 
-    public function generatePdfAndUpload()
+    /**
+     * @Route("/pdf/upload", name="upload_pdf")
+     * @param UploaderHelper $uploaderHelper
+     * @return Response
+     */
+    public function generatePdfAndUpload(UploaderHelper $uploaderHelper, PdfService $pdfService)
     {
-        $tmpPath = sys_get_temp_dir().'/uploads/'.uniqid();
+        $pdf = $pdfService->generateCustomerComparisonPdf();
 
-        //generate pdf
-        $pdf = "";
+        $filePath = $uploaderHelper->uploadPdf($pdf);
 
-        file_put_contents($tmpPath, $pdf);
+        return $this->json(["pdf" => $filePath]);
+    }
 
-        $uploadedFile = new File($tmpPath);
+    /**
+     * @Route("/css/upload", name="upload_css")
+     * @param UploaderHelper $uploaderHelper
+     * @param CssGeneratorService $cssGeneratorService
+     * @return JsonResponse
+     */
+    public function generateCssAndUpload(UploaderHelper $uploaderHelper, CssGeneratorService $cssGeneratorService)
+    {
+        $css = $cssGeneratorService->generatePoolCss();
 
-        //upload file to s3
+        $filePath = $uploaderHelper->uploadCss($css);
 
-        unlink($tmpPath);
+        return $this->json(["css" => $filePath]);
     }
 }

@@ -92,7 +92,9 @@ class UploaderHelper
     {
         $originalName = $file instanceof UploadedFile ? $file->getClientOriginalName() : $file->getFilename();
 
-        $newFileName = Urlizer::urlize(pathinfo($originalName, PATHINFO_FILENAME)) . '-' . uniqid() . '.' . $file->guessExtension();
+        $extension = $file->getExtension() !== "" ? $file->getExtension() : $file->guessExtension();
+
+        $newFileName = Urlizer::urlize(pathinfo($originalName, PATHINFO_FILENAME)) . '-' . uniqid() . '.' . $extension;
 
         return $path.'/'.$newFileName;
     }
@@ -145,5 +147,35 @@ class UploaderHelper
         if($result === false){
             throw new \Exception('Error file could not be deleted "%s"', $path);
         }
+    }
+
+    public function uploadPdf($pdf)
+    {
+        $tmpPath = sys_get_temp_dir().uniqid();
+
+        file_put_contents($tmpPath, $pdf);
+
+        $uploadedFile = new File($tmpPath);
+
+        $filePath = $this->uploadFile($uploadedFile, false, "pdf");
+
+        unlink($tmpPath);
+
+        return $filePath;
+    }
+
+    public function uploadCss($css)
+    {
+        $tmpPath = sys_get_temp_dir().uniqid().".css";
+
+        file_put_contents($tmpPath, $css);
+
+        $uploadedFile = new File($tmpPath);
+
+        $filePath = $this->uploadFile($uploadedFile, false, "css");
+
+        unlink($tmpPath);
+
+        return $filePath;
     }
 }
