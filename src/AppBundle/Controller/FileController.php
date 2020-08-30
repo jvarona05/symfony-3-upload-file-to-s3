@@ -4,21 +4,18 @@ namespace AppBundle\Controller;
 
 use AppBundle\Factory\FileFactory;
 use AppBundle\Service\FileHelper;
-use AppBundle\Utils\UrlUtils;
 use AppBundle\Entity\UserFile;
 use AppBundle\Service\UploaderHelper;
-use Aws\S3\S3Client;
 use Doctrine\ORM\EntityManagerInterface;
 use Sensio\Bundle\FrameworkExtraBundle\Configuration\IsGranted;
 use Symfony\Bundle\FrameworkBundle\Controller\Controller;
 use Symfony\Component\HttpFoundation\File\File;
 use Symfony\Component\HttpFoundation\File\UploadedFile;
-use Symfony\Component\HttpFoundation\RedirectResponse;
+use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 use Symfony\Component\Routing\Annotation\Route;
-use AppBundle\Utils\HeaderUtils;
 
 class FileController extends Controller
 {
@@ -34,17 +31,19 @@ class FileController extends Controller
      * @Route("/file/upload", name="upload_file")
      * @param Request $request
      * @param UploaderHelper $uploaderHelper
-     * @param FileFactory $fileFactory
+     * @param FileFactory $userFileFactory
+     * @return JsonResponse
      */
-    public function uploadAction(Request $request, UploaderHelper $uploaderHelper, FileFactory $fileFactory)
+    public function uploadAction(Request $request, UploaderHelper $uploaderHelper, FileFactory $userFileFactory)
     {
         /** @var UploadedFile $uploadedFile */
         $uploadedFile = $request->files->get("file");
+
         $isPrivate = $request->get("type") == "private";
 
         $filePath = $uploaderHelper->uploadFile($uploadedFile, $isPrivate, "files");
 
-        $file = $fileFactory->insertFile($uploadedFile, $filePath, $isPrivate);
+        $file = $userFileFactory->insertFile($uploadedFile, $filePath, $isPrivate);
 
         return $this->json($file);
     }
@@ -98,20 +97,22 @@ class FileController extends Controller
     }
 
     /**
-     * @Route("/upload/{id}/delete", name="delete_uploaded_file")
-     * @IsGranted("MANAGE", subject="document")
-     * @param File $document
+     * @Route("/file/{id}/delete", name="delete_uploaded_file")
+     * @IsGranted("MANAGE", subject="file")
+     * @param UserFile $file
      * @param UploaderHelper $uploaderHelper
+     * @param EntityManagerInterface $em
+     * @return Response
      * @throws \Exception
      */
-    public function deleteFile(File $document, UploaderHelper $uploaderHelper, EntityManagerInterface $em)
+    public function deleteFile(UserFile $file, UploaderHelper $uploaderHelper, EntityManagerInterface $em)
     {
-        $em->remove($document);
+        $em->remove($file);
         $em->flush();
 
-        $uploaderHelper->deleteFile($document->getPath());
+        $uploaderHelper->deleteFile($file->getPath());
 
-        return new Response(null, 204);
+        return new Response("success", 204);
     }
 
     public function generatePdfAndUpload()

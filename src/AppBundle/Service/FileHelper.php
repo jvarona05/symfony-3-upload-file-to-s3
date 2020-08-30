@@ -37,9 +37,9 @@ class FileHelper
 
     public function __construct(
         UploaderHelper $uploaderHelper,
-        string $uploadsBaseUrl,
         FilesystemInterface $awsUploadFileSystem,
         S3Client $s3Client,
+        string $uploadsBaseUrl,
         string $s3Bucket
     ){
         $this->uploaderHelper = $uploaderHelper;
@@ -49,6 +49,7 @@ class FileHelper
         $this->fileSystem = $awsUploadFileSystem;
 
         $this->s3Client = $s3Client;
+
         $this->s3Bucket = $s3Bucket;
     }
 
