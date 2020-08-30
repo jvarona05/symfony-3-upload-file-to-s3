@@ -16,6 +16,7 @@ services:
         public: false
         bind:
             $awsUploadFileSystem: '@oneup_flysystem.aws_uploads_filesystem_filesystem'
+            $uploadsBaseUrl: "%uploads_base_url%"
 
     # makes classes in src/AppBundle available to be used as services
     # this creates a service per class whose id is the fully-qualified class name

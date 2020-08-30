@@ -4,12 +4,14 @@ namespace AppBundle\Entity;
 
 use AppBundle\Repository\DocumentRepository;
 use Doctrine\ORM\Mapping as ORM;
+use JsonSerializable;
+use AppBundle\Entity\FileInterface;
 
 /**
  * @ORM\Entity()
  * @ORM\Table(name="user_files")
  */
-class UserFile
+class UserFile implements JsonSerializable, FileInterface
 {
     /**
      * @ORM\Id()
@@ -32,16 +34,6 @@ class UserFile
      * @ORM\Column(type="boolean")
      */
     private $isPrivate;
-
-    /**
-     * @ORM\Column(type="string", length=255)
-     */
-    private $mimeType;
-
-    /**
-     * @ORM\Column(type="string", length=255)
-     */
-    private $name;
 
     /**
      * @ORM\Column(type="text", nullable=true)
@@ -89,30 +81,6 @@ class UserFile
         return $this;
     }
 
-    public function getMimeType(): ?string
-    {
-        return $this->mimeType;
-    }
-
-    public function setMimeType(string $mimeType): self
-    {
-        $this->mimeType = $mimeType;
-
-        return $this;
-    }
-
-    public function getName(): ?string
-    {
-        return $this->name;
-    }
-
-    public function setName(string $name): self
-    {
-        $this->name = $name;
-
-        return $this;
-    }
-
     public function getThumbnail(): ?string
     {
         return $this->thumbnail;
@@ -123,5 +91,16 @@ class UserFile
         $this->thumbnail = $thumbnail;
 
         return $this;
+    }
+
+    public function jsonSerialize()
+    {
+        return [
+            "id" => $this->id,
+            "path" => $this->path,
+            "user" => $this->user->getEmail(),
+            "isPrivate" => $this->isPrivate,
+            "thumbnail" => $this->thumbnail
+        ];
     }
 }

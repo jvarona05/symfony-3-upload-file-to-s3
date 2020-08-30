@@ -1,7 +1,7 @@
 <?php
 
 
-namespace AppBundle\Entity;
+namespace AppBundle\Utils;
 
 
 class UrlUtils

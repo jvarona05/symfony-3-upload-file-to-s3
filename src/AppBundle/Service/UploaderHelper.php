@@ -33,8 +33,8 @@ class UploaderHelper
 
     /**
      * UploaderHelper constructor.
-     * @param FilesystemInterface $publicUploadFileSystem
-     * @param FilesystemInterface $privateUploadFileSystem
+     * @param FilesystemInterface $awsUploadFileSystem
+     * @param ValidatorInterface $validator
      * @param LoggerInterface $logger
      */
     public function __construct(FilesystemInterface $awsUploadFileSystem, ValidatorInterface $validator, LoggerInterface $logger)
@@ -44,59 +44,24 @@ class UploaderHelper
         $this->validator = $validator;
     }
 
-    public function uploadPublicFile(File $file, ?string $existingFileName = null)
+    public function uploadFile(File $file, bool $isPrivate, $path = "", ?string $existingFilePath = null)
     {
-        $newFileName = $this->uploadFile($file, false);
+        try {
+            $this->validateFile($file);
 
-        //para cuando ya existe un archivo
-        if($existingFileName){
-            try {
-                $result = $this->fileSystem->delete($existingFileName);
+            $filePath = $this->getFilePath($file, $path);
 
-                if($result === false){
-                    throw new \Exception('Could not delete old uploaded file "%s"', $existingFileName);
-                }
-            }catch(FileNotFoundException $e){
-                $this->logger->alert(sprintf('Old uploaded file "%s" as missing when trying to delete', $existingFileName));
-            }
+            $this->storeFile($file, $filePath, $isPrivate);
+
+            $this->deleteFile($existingFilePath);
+
+            return $filePath;
+
+        }catch (\Exception $e){
+            $this->logger->alert($e->getMessage());
+
+            return false;
         }
-
-
-        return $newFileName;
-    }
-
-    public function uploadPrivateFile(File $file, ?string $existingFileName = null)
-    {
-        return $this->uploadFile($file, true);
-    }
-
-    public function uploadFile(File $file, bool $isPrivate): string
-    {
-        $this->validateFile($file);
-
-        $originalName = $file instanceof UploadedFile ? $file->getClientOriginalName() : $file->getFilename();
-
-        $newFileName = Urlizer::urlize(pathinfo($originalName, PATHINFO_FILENAME)) . '-' . uniqid() . '.' . $file->guessExtension();
-
-        $stream = fopen($file->getPathname(), 'r');
-
-        $result = $this->fileSystem->writeStream(
-            $newFileName,
-            $stream,
-            [
-                'visibility' => $isPrivate ? AdapterInterface::VISIBILITY_PRIVATE : AdapterInterface::VISIBILITY_PUBLIC
-            ]
-        );
-
-        if($result === false){
-            throw new \Exception('Could not write uploaded file "%s"', $newFileName);
-        }
-
-        if(is_resource($stream)){
-            fclose($stream);
-        }
-
-        return $newFileName;
     }
 
     public function validateFile(File $file)
@@ -123,6 +88,36 @@ class UploaderHelper
         }
     }
 
+    private function getFilePath(File $file, string $path): string
+    {
+        $originalName = $file instanceof UploadedFile ? $file->getClientOriginalName() : $file->getFilename();
+
+        $newFileName = Urlizer::urlize(pathinfo($originalName, PATHINFO_FILENAME)) . '-' . uniqid() . '.' . $file->guessExtension();
+
+        return $path.'/'.$newFileName;
+    }
+
+    public function storeFile(File $file, string $filePath, bool $isPrivate)
+    {
+        $stream = fopen($file->getPathname(), 'r');
+
+        $result = $this->fileSystem->writeStream(
+            $filePath,
+            $stream,
+            [
+                'visibility' => $isPrivate ? AdapterInterface::VISIBILITY_PRIVATE : AdapterInterface::VISIBILITY_PUBLIC
+            ]
+        );
+
+        if($result === false){
+            throw new \Exception('Could not write uploaded file "%s"', $filePath);
+        }
+
+        if(is_resource($stream)){
+            fclose($stream);
+        }
+    }
+
     /**
      * @param string $path
      * @param bool $isPrivate
@@ -141,12 +136,14 @@ class UploaderHelper
         return $resource;
     }
 
-    public function deleteFile(string $path)
+    public function deleteFile(?string $path)
     {
+        if(!$path) return null;
+
         $result = $this->fileSystem->delete($path);
 
         if($result === false){
-            throw new \Exception('Error file could be deleted "%s"', $path);
+            throw new \Exception('Error file could not be deleted "%s"', $path);
         }
     }
 }
